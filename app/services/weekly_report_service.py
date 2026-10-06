@@ -342,6 +342,7 @@ class WeeklyReportService:
                 period_start=start_date,
                 period_end=end_date,
             )
+            response.excel_file_path = str(excel_path)
             logger.info("Excel report: %s", excel_path)
         except Exception as exc:
             logger.error("Excel generation failed: %s", exc)

@@ -227,6 +227,20 @@ def generate_excel_report(
         ws3.cell(row=idx, column=1, value=key).font = Font(bold=True, name="Calibri")
         ws3.cell(row=idx, column=2, value=str(value)).font = NORMAL_FONT
 
-    wb.save(file_path)
+    try:
+        wb.save(file_path)
+    except PermissionError:
+        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        alt_filename = (
+            f"weekly_mailbox_report_{period_start.isoformat()}"
+            f"_to_{period_end.isoformat()}_{timestamp_str}.xlsx"
+        )
+        file_path = output_path / alt_filename
+        wb.save(file_path)
+        logger.warning(
+            "Primary Excel file was locked/open. Saved with timestamp: %s",
+            file_path,
+        )
+
     logger.info("Excel report saved: %s", file_path)
     return file_path

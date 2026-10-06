@@ -214,7 +214,7 @@ async def cmd_generate_report(
             )
 
     print(f"\n\nNote: {report.data_attribution_note[:120]}...")
-    print("\nExcel report saved to: exports/")
+    print(f"\nExcel report saved to: {report.excel_file_path or 'exports/'}")
 
 
 def cmd_server(host: str, port: int) -> None:

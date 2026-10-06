@@ -48,6 +48,7 @@ class WeeklyReportResponse(BaseModel):
     total_bounced: int
     overall_bounce_rate: float
     data_attribution_note: str
+    excel_file_path: Optional[str] = None
     clients: list[ClientReportItem] = []
 
 
