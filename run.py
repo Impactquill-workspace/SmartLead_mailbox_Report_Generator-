@@ -195,6 +195,7 @@ async def cmd_generate_report(
     print(f"Period       : {report.period_start} -> {report.period_end}")
     print(f"Clients      : {report.total_clients}")
     print(f"Mailboxes    : {report.total_mailboxes}")
+    print(f"Total Leads  : {report.total_leads_contacted:,}")
     print(f"Total Sent   : {report.total_sent:,}")
     print(f"Total Bounced: {report.total_bounced:,}")
     print(f"Bounce Rate  : {report.overall_bounce_rate:.2f}%")
@@ -203,14 +204,15 @@ async def cmd_generate_report(
     # Print detailed breakdown
     for client in report.clients:
         print(f"\nClient: {client.client_name} (ID: {client.client_id})")
-        print(f"{'Mailbox':<40} {'Sent':>10} {'Bounced':>10} {'Rate':>10}")
-        print("-" * 74)
+        print(f"{'Mailbox':<38} {'Leads':>8} {'Sent':>8} {'Bounced':>8} {'Rate':>9}")
+        print("-" * 75)
         for mailbox in client.mailboxes:
             print(
-                f"{mailbox.email:<40} "
-                f"{mailbox.sent:>10,} "
-                f"{mailbox.bounced:>10,} "
-                f"{mailbox.bounce_rate:>9.2f}%"
+                f"{mailbox.email:<38} "
+                f"{mailbox.leads_contacted:>8,} "
+                f"{mailbox.sent:>8,} "
+                f"{mailbox.bounced:>8,} "
+                f"{mailbox.bounce_rate:>8.2f}%"
             )
 
     print(f"\n\nNote: {report.data_attribution_note[:120]}...")

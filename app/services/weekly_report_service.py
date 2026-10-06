@@ -250,6 +250,7 @@ class WeeklyReportService:
                 MailboxReportItem(
                     email=agg.email,
                     mailbox_id=agg.smartlead_email_account_id,
+                    leads_contacted=agg.leads_contacted,
                     sent=agg.sent,
                     bounced=agg.bounced,
                     bounce_rate=agg.bounce_rate,
@@ -277,6 +278,7 @@ class WeeklyReportService:
 
         # Step 8: Summary totals
         total_mailboxes = sum(len(c.mailboxes) for c in client_report_items)
+        total_leads_contacted = sum(c.total_leads_contacted for c in client_report_items)
         total_sent = sum(
             sum(m.sent for m in c.mailboxes) for c in client_report_items
         )
@@ -289,9 +291,10 @@ class WeeklyReportService:
 
         logger.info(
             "=== Report summary: %d clients, %d mailboxes, "
-            "sent=%d, bounced=%d, bounce_rate=%.2f%% ===",
+            "leads=%d, sent=%d, bounced=%d, bounce_rate=%.2f%% ===",
             len(client_report_items),
             total_mailboxes,
+            total_leads_contacted,
             total_sent,
             total_bounced,
             overall_bounce_rate,
@@ -303,6 +306,7 @@ class WeeklyReportService:
             generated_at=datetime.now().isoformat(),
             total_clients=len(client_report_items),
             total_mailboxes=total_mailboxes,
+            total_leads_contacted=total_leads_contacted,
             total_sent=total_sent,
             total_bounced=total_bounced,
             overall_bounce_rate=overall_bounce_rate,
@@ -324,6 +328,7 @@ class WeeklyReportService:
                         {
                             "email": m.email,
                             "mailbox_id": m.mailbox_id,
+                            "leads_contacted": m.leads_contacted,
                             "sent": m.sent,
                             "bounced": m.bounced,
                             "bounce_rate": m.bounce_rate,

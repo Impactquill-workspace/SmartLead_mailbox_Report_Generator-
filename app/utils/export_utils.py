@@ -110,6 +110,7 @@ def generate_excel_report(
         "Date Range",
         "Client Name",
         "Mailbox Email",
+        "Leads Contacted",
         "Total Sent",
         "Bounced",
         "Bounced Percentage",
@@ -126,19 +127,21 @@ def generate_excel_report(
     for client in report_data.get("clients", []):
         for mailbox in client.get("mailboxes", []):
             bounce_rate = mailbox.get("bounce_rate", 0.0)
+            leads_cnt = mailbox.get("leads_contacted", mailbox.get("sent", 0))
             ws1.cell(row=row_num, column=1, value=date_range_str)
             ws1.cell(row=row_num, column=2, value=client.get("client_name", ""))
             ws1.cell(row=row_num, column=3, value=mailbox.get("email", ""))
-            ws1.cell(row=row_num, column=4, value=mailbox.get("sent", 0))
-            ws1.cell(row=row_num, column=5, value=mailbox.get("bounced", 0))
+            ws1.cell(row=row_num, column=4, value=leads_cnt)
+            ws1.cell(row=row_num, column=5, value=mailbox.get("sent", 0))
+            ws1.cell(row=row_num, column=6, value=mailbox.get("bounced", 0))
 
             # Bounced Percentage formatted e.g. 2.50%
-            ws1.cell(row=row_num, column=6, value=f"{bounce_rate:.2f}%")
+            ws1.cell(row=row_num, column=7, value=f"{bounce_rate:.2f}%")
 
-            ws1.cell(row=row_num, column=7, value=client.get("client_id"))
-            ws1.cell(row=row_num, column=8, value=mailbox.get("mailbox_id"))
+            ws1.cell(row=row_num, column=8, value=client.get("client_id"))
+            ws1.cell(row=row_num, column=9, value=mailbox.get("mailbox_id"))
 
-            for col in range(1, 9):
+            for col in range(1, 10):
                 ws1.cell(row=row_num, column=col).font = NORMAL_FONT
                 ws1.cell(row=row_num, column=col).alignment = Alignment(
                     vertical="center"
@@ -155,17 +158,19 @@ def generate_excel_report(
         "Client Name",
         "Client ID",
         "Total Mailboxes",
+        "Leads Contacted",
         "Total Sent",
         "Total Bounced",
         "Overall Bounce Rate (%)",
     ]
     _apply_header_row(ws2, headers_s2, row=1)
     ws2.freeze_panes = "A2"
-    ws2.auto_filter.ref = "A1:F1"
+    ws2.auto_filter.ref = "A1:G1"
 
     row_num = 2
     for client in report_data.get("clients", []):
         mailboxes = client.get("mailboxes", [])
+        total_leads = sum(m.get("leads_contacted", m.get("sent", 0)) for m in mailboxes)
         total_sent = sum(m.get("sent", 0) for m in mailboxes)
         total_bounced = sum(m.get("bounced", 0) for m in mailboxes)
         overall_rate = round((total_bounced / total_sent * 100) if total_sent > 0 else 0, 2)
@@ -173,11 +178,12 @@ def generate_excel_report(
         ws2.cell(row=row_num, column=1, value=client.get("client_name", ""))
         ws2.cell(row=row_num, column=2, value=client.get("client_id"))
         ws2.cell(row=row_num, column=3, value=len(mailboxes))
-        ws2.cell(row=row_num, column=4, value=total_sent)
-        ws2.cell(row=row_num, column=5, value=total_bounced)
-        ws2.cell(row=row_num, column=6, value=overall_rate).number_format = "0.00"
+        ws2.cell(row=row_num, column=4, value=total_leads)
+        ws2.cell(row=row_num, column=5, value=total_sent)
+        ws2.cell(row=row_num, column=6, value=total_bounced)
+        ws2.cell(row=row_num, column=7, value=overall_rate).number_format = "0.00"
 
-        for col in range(1, 7):
+        for col in range(1, 8):
             ws2.cell(row=row_num, column=col).font = NORMAL_FONT
 
         row_num += 1

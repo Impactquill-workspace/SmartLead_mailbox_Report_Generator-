@@ -83,6 +83,7 @@ class MailboxAggregate:
     # Running totals (deduplicated across campaigns)
     sent: int = 0
     bounced: int = 0
+    leads_contacted: int = 0
 
     # Attribution tracking
     campaigns_contributed: list[int] = field(default_factory=list)
@@ -133,6 +134,7 @@ class MailboxAggregate:
 
         self.sent += attributed_sent
         self.bounced += attributed_bounced
+        self.leads_contacted += attributed_sent
         self.campaigns_contributed.append(campaign_id)
 
     def add_direct_stats(
@@ -140,6 +142,7 @@ class MailboxAggregate:
         campaign_id: int,
         sent: int,
         bounced: int,
+        leads_contacted: int | None = None,
     ) -> None:
         """
         Add exact mailbox sent and bounce counts from /campaigns/{id}/mailbox-statistics.
@@ -155,6 +158,7 @@ class MailboxAggregate:
 
         self.sent += max(0, sent)
         self.bounced += max(0, bounced)
+        self.leads_contacted += max(0, leads_contacted if leads_contacted is not None else sent)
         self.campaigns_contributed.append(campaign_id)
 
     @property

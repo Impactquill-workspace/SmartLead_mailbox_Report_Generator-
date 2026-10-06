@@ -11,6 +11,7 @@ class MailboxReportItem(BaseModel):
     """Per-mailbox statistics in the report."""
     email: str
     mailbox_id: Optional[int] = None
+    leads_contacted: int = 0
     sent: int
     bounced: int
     bounce_rate: float
@@ -21,6 +22,10 @@ class ClientReportItem(BaseModel):
     client_id: int
     client_name: str
     mailboxes: list[MailboxReportItem] = []
+
+    @property
+    def total_leads_contacted(self) -> int:
+        return sum(m.leads_contacted for m in self.mailboxes)
 
     @property
     def total_sent(self) -> int:
@@ -44,6 +49,7 @@ class WeeklyReportResponse(BaseModel):
     generated_at: str
     total_clients: int
     total_mailboxes: int
+    total_leads_contacted: int = 0
     total_sent: int
     total_bounced: int
     overall_bounce_rate: float
