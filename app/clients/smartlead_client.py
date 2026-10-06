@@ -434,13 +434,48 @@ class SmartleadApiClient:
             if isinstance(result, list):
                 return result
             if isinstance(result, dict):
-                return result.get("data", [])
+                if "data" in result and isinstance(result["data"], list):
+                    return result["data"]
+                return [result]
             return []
         except SmartleadNotFoundError:
             logger.warning(
                 "Campaign %d not found when fetching analytics", campaign_id
             )
             return []
+
+    async def get_campaign_date_analytics(
+        self,
+        campaign_id: int,
+        start_date: str,
+        end_date: str,
+    ) -> dict[str, Any]:
+        """
+        Fetch summary analytics (including unique_sent_count / unique leads contacted)
+        for a campaign within a date range.
+        Endpoint: GET /campaigns/{campaign_id}/analytics-by-date
+        """
+        logger.debug(
+            "Fetching summary analytics for campaign %d [%s → %s]",
+            campaign_id,
+            start_date,
+            end_date,
+        )
+        try:
+            result = await self._get(
+                f"/campaigns/{campaign_id}/analytics-by-date",
+                params={"start_date": start_date, "end_date": end_date},
+            )
+            if isinstance(result, dict):
+                return result
+            if isinstance(result, list) and result:
+                return result[0]
+            return {}
+        except (SmartleadNotFoundError, SmartleadError) as exc:
+            logger.debug(
+                "Campaign %d analytics-by-date error: %s", campaign_id, exc
+            )
+            return {}
 
     async def get_campaign_statistics(
         self,

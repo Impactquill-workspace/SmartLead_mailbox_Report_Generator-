@@ -127,7 +127,7 @@ def generate_excel_report(
     for client in report_data.get("clients", []):
         for mailbox in client.get("mailboxes", []):
             bounce_rate = mailbox.get("bounce_rate", 0.0)
-            leads_cnt = mailbox.get("leads_contacted", mailbox.get("sent", 0))
+            leads_cnt = mailbox.get("leads_contacted", 0)
             ws1.cell(row=row_num, column=1, value=date_range_str)
             ws1.cell(row=row_num, column=2, value=client.get("client_name", ""))
             ws1.cell(row=row_num, column=3, value=mailbox.get("email", ""))
@@ -170,7 +170,7 @@ def generate_excel_report(
     row_num = 2
     for client in report_data.get("clients", []):
         mailboxes = client.get("mailboxes", [])
-        total_leads = sum(m.get("leads_contacted", m.get("sent", 0)) for m in mailboxes)
+        total_leads = sum(m.get("leads_contacted", 0) for m in mailboxes)
         total_sent = sum(m.get("sent", 0) for m in mailboxes)
         total_bounced = sum(m.get("bounced", 0) for m in mailboxes)
         overall_rate = round((total_bounced / total_sent * 100) if total_sent > 0 else 0, 2)

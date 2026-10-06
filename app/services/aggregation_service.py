@@ -95,6 +95,7 @@ class MailboxAggregate:
         campaign_sent: int,
         campaign_bounced: int,
         num_mailboxes_in_campaign: int,
+        leads_contacted: int | None = None,
     ) -> None:
         """
         Add one campaign's contribution to this mailbox.
@@ -117,10 +118,16 @@ class MailboxAggregate:
             # Full attribution — accurate
             attributed_sent = campaign_sent
             attributed_bounced = campaign_bounced
+            attributed_leads = leads_contacted if leads_contacted is not None else campaign_sent
         else:
             # Equal-share attribution — documented estimate
             attributed_sent = campaign_sent // num_mailboxes_in_campaign
             attributed_bounced = campaign_bounced // num_mailboxes_in_campaign
+            attributed_leads = (
+                leads_contacted // num_mailboxes_in_campaign
+                if leads_contacted is not None
+                else attributed_sent
+            )
             self.multi_mailbox_campaigns.append(campaign_id)
             logger.debug(
                 "Multi-mailbox campaign %d: %d mailboxes, attributing %d/%d "
@@ -134,7 +141,7 @@ class MailboxAggregate:
 
         self.sent += attributed_sent
         self.bounced += attributed_bounced
-        self.leads_contacted += attributed_sent
+        self.leads_contacted += max(0, attributed_leads)
         self.campaigns_contributed.append(campaign_id)
 
     def add_direct_stats(
@@ -276,9 +283,15 @@ def aggregate_mailboxes(
             continue
 
         mailbox_stats = campaign_data.get("mailbox_stats")
+        campaign_unique_sent = campaign_data.get("unique_sent_count")
 
         if mailbox_stats is not None:
             # DIRECT OFFICIAL ATTRIBUTION via /campaigns/{id}/mailbox-statistics
+            total_mb_sent = sum(int(s.get("sent_count", 0) or 0) for s in mailbox_stats)
+            lead_ratio: float | None = None
+            if campaign_unique_sent is not None:
+                lead_ratio = (campaign_unique_sent / total_mb_sent) if total_mb_sent > 0 else 0.0
+
             stats_by_acc_id: dict[int, dict[str, Any]] = {}
             stats_by_email: dict[str, dict[str, Any]] = {}
             for stat in mailbox_stats:
@@ -313,7 +326,8 @@ def aggregate_mailboxes(
                 if stat_match:
                     s_count = int(stat_match.get("sent_count", 0) or 0)
                     b_count = int(stat_match.get("bounce_count", 0) or 0)
-                    mailbox_map[key].add_direct_stats(campaign_id, s_count, b_count)
+                    m_leads = round(s_count * lead_ratio) if lead_ratio is not None else None
+                    mailbox_map[key].add_direct_stats(campaign_id, s_count, b_count, leads_contacted=m_leads)
 
             # Also register any mailbox that sent emails but wasn't in attached email_accounts
             for stat in mailbox_stats:
@@ -335,7 +349,8 @@ def aggregate_mailboxes(
                     )
                     s_count = int(stat.get("sent_count", 0) or 0)
                     b_count = int(stat.get("bounce_count", 0) or 0)
-                    mailbox_map[key].add_direct_stats(campaign_id, s_count, b_count)
+                    m_leads = round(s_count * lead_ratio) if lead_ratio is not None else None
+                    mailbox_map[key].add_direct_stats(campaign_id, s_count, b_count, leads_contacted=m_leads)
 
         else:
             # FALLBACK ATTRIBUTION (equal-share estimate if direct endpoint not available)
@@ -359,6 +374,7 @@ def aggregate_mailboxes(
                     campaign_sent=campaign_sent,
                     campaign_bounced=campaign_bounced,
                     num_mailboxes_in_campaign=num_mailboxes,
+                    leads_contacted=campaign_unique_sent,
                 )
 
     aggregates = list(mailbox_map.values())

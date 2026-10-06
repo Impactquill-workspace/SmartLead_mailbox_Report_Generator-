@@ -214,11 +214,21 @@ class WeeklyReportService:
                     total_sent = sum(m.get("sent_count", 0) for m in mailbox_stats)
                     total_bounced = sum(m.get("bounce_count", 0) for m in mailbox_stats)
 
+                    unique_sent_count = 0
+                    if total_sent > 0:
+                        camp_analytics = await self._api.get_campaign_date_analytics(
+                            campaign_id=campaign_id,
+                            start_date=start_str,
+                            end_date=end_str,
+                        )
+                        unique_sent_count = int(camp_analytics.get("unique_sent_count", 0) or 0)
+
                     return {
                         "campaign_id": campaign_id,
                         "campaign_name": campaign_name,
                         "total_sent": total_sent,
                         "total_bounced": total_bounced,
+                        "unique_sent_count": unique_sent_count,
                         "mailbox_stats": mailbox_stats,
                         "email_accounts": email_accounts,
                     }

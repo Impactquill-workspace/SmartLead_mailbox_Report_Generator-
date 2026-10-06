@@ -352,3 +352,80 @@ class TestMultiMailboxCampaign:
         assert agg.sent == 100
         assert agg.bounced == 10
         assert not agg.has_multi_mailbox_attribution
+
+
+class TestLeadsContactedCalculation:
+    """Tests for accurate proportional unique leads contacted attribution."""
+
+    def test_proportional_leads_contacted_direct_stats(self):
+        """
+        Campaign with 2 mailboxes:
+        mb1: sent 120, bounced 6
+        mb2: sent 80, bounced 4
+        Total sent: 200
+        Unique leads contacted (unique_sent_count): 100
+        mb1 leads: 120 * (100 / 200) = 60
+        mb2 leads: 80 * (100 / 200) = 40
+        """
+        campaign_data = [
+            {
+                "campaign_id": 1,
+                "total_sent": 200,
+                "total_bounced": 10,
+                "unique_sent_count": 100,
+                "email_accounts": [
+                    {"id": 1, "from_email": "mb1@example.com"},
+                    {"id": 2, "from_email": "mb2@example.com"},
+                ],
+                "mailbox_stats": [
+                    {
+                        "email_account_id": 1,
+                        "from_email": "mb1@example.com",
+                        "sent_count": 120,
+                        "bounce_count": 6,
+                    },
+                    {
+                        "email_account_id": 2,
+                        "from_email": "mb2@example.com",
+                        "sent_count": 80,
+                        "bounce_count": 4,
+                    },
+                ],
+            },
+        ]
+
+        aggregates = aggregate_mailboxes(1, "Client", campaign_data)
+        by_email = {a.email: a for a in aggregates}
+
+        assert by_email["mb1@example.com"].sent == 120
+        assert by_email["mb1@example.com"].leads_contacted == 60
+        assert by_email["mb2@example.com"].sent == 80
+        assert by_email["mb2@example.com"].leads_contacted == 40
+        assert sum(a.leads_contacted for a in aggregates) == 100
+
+    def test_single_mailbox_leads_contacted(self):
+        """Single mailbox in campaign gets all unique leads."""
+        campaign_data = [
+            {
+                "campaign_id": 1,
+                "total_sent": 500,
+                "total_bounced": 15,
+                "unique_sent_count": 180,
+                "email_accounts": [
+                    {"id": 1, "from_email": "solo@example.com"},
+                ],
+                "mailbox_stats": [
+                    {
+                        "email_account_id": 1,
+                        "from_email": "solo@example.com",
+                        "sent_count": 500,
+                        "bounce_count": 15,
+                    },
+                ],
+            },
+        ]
+
+        aggregates = aggregate_mailboxes(1, "Client", campaign_data)
+        assert aggregates[0].sent == 500
+        assert aggregates[0].leads_contacted == 180
+        assert aggregates[0].bounced == 15
