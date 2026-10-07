@@ -84,6 +84,7 @@ class MailboxAggregate:
     sent: int = 0
     bounced: int = 0
     leads_contacted: int = 0
+    custom_bounce_rate: float | None = None
 
     # Attribution tracking
     campaigns_contributed: list[int] = field(default_factory=list)
@@ -172,12 +173,16 @@ class MailboxAggregate:
     def bounce_rate(self) -> float:
         """
         Bounce rate as a percentage.
-        bounce_rate = (bounced / sent) * 100
-        Returns 0 if sent == 0 (no division by zero).
+        Returns custom_bounce_rate if provided directly from official health metrics.
+        Otherwise calculates (bounced / sent) * 100.
+        Returns 0.0 if sent == 0 (no division by zero).
         """
+        if self.custom_bounce_rate is not None:
+            return self.custom_bounce_rate
         if self.sent == 0:
             return 0.0
         return round((self.bounced / self.sent) * 100, 2)
+
 
     @property
     def has_multi_mailbox_attribution(self) -> bool:

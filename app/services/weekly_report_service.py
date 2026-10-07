@@ -58,8 +58,8 @@ logger = logging.getLogger(__name__)
 
 DATA_ATTRIBUTION_NOTE = (
     "Mailbox delivery statistics are fetched directly from Smartlead's official "
-    "mailbox-statistics endpoint (GET /campaigns/{campaign_id}/mailbox-statistics), "
-    "providing exact sent and bounced counts for each individual sending mailbox."
+    "Email Health Metrics endpoint (GET /analytics/mailbox/name-wise-health-metrics), "
+    "providing exact Leads Contacted, Total Sent, Bounces, and Bounce Rate for each individual sending mailbox."
 )
 
 
@@ -164,6 +164,18 @@ class WeeklyReportService:
                 len(campaigns_by_client),
             )
 
+        # Step 2.5: Build global mailbox email -> account mapping
+        all_accounts = await self._mailbox_service.get_all_mailboxes()
+        email_to_id: dict[str, int] = {}
+        email_to_name: dict[str, str] = {}
+        for acc in all_accounts:
+            acc_id = acc.get("id")
+            norm_em = normalize_email(acc.get("from_email", "") or acc.get("email", ""))
+            if acc_id and norm_em:
+                email_to_id[norm_em] = int(acc_id)
+            if norm_em and acc.get("from_name"):
+                email_to_name[norm_em] = acc.get("from_name")
+
         client_report_items: list[ClientReportItem] = []
         all_aggregates: list[MailboxAggregate] = []
 
@@ -173,8 +185,11 @@ class WeeklyReportService:
         start_str = format_date(start_date)
         end_str = format_date(end_date)
 
-        # Step 3: Process each client's campaigns
-        for client_sl_id, campaigns in campaigns_by_client.items():
+        # Step 3: Process each client
+        async def process_single_client(
+            client_sl_id: int,
+            campaigns: list[dict[str, Any]],
+        ) -> tuple[ClientReportItem | None, list[MailboxAggregate]]:
             client_info = client_map.get(client_sl_id, {})
             client_name = client_info.get("display_name") or client_info.get("name")
             if not client_name:
@@ -182,6 +197,83 @@ class WeeklyReportService:
 
             logger.info("Processing client: %s (id=%s, %d campaigns)", client_name, client_sl_id, len(campaigns))
 
+            client_camp_ids = [c["id"] for c in campaigns if c.get("id")]
+            client_id_param = str(client_sl_id) if client_sl_id != 0 else None
+            camp_ids_param = ",".join(map(str, client_camp_ids)) if client_camp_ids else None
+
+            # Primary approach: Official Smartlead Email Health Metrics
+            health_metrics: list[dict[str, Any]] = []
+            async with sem:
+                try:
+                    health_metrics = await self._api.get_mailbox_health_metrics(
+                        start_date=start_str,
+                        end_date=end_str,
+                        client_ids=client_id_param,
+                        campaign_ids=camp_ids_param,
+                        full_data=True,
+                    )
+                except Exception as exc:
+                    logger.debug("Health metrics endpoint error for client %s: %s", client_sl_id, exc)
+
+            if health_metrics:
+                aggregates: list[MailboxAggregate] = []
+                for item in health_metrics:
+                    email = item.get("from_email", "")
+                    if not email:
+                        continue
+                    norm_em = normalize_email(email)
+                    sent = int(item.get("sent", 0) or 0)
+                    bounced = int(item.get("bounced", 0) or 0)
+                    leads = int(item.get("unique_lead_count", 0) or 0)
+
+                    raw_rate = item.get("bounce_rate")
+                    b_rate = None
+                    if isinstance(raw_rate, str) and "%" in raw_rate:
+                        try:
+                            b_rate = round(float(raw_rate.replace("%", "").strip()), 2)
+                        except ValueError:
+                            pass
+                    elif isinstance(raw_rate, (int, float)):
+                        b_rate = round(float(raw_rate), 2)
+
+                    agg = MailboxAggregate(
+                        email=email,
+                        normalized_email=norm_em,
+                        smartlead_email_account_id=email_to_id.get(norm_em),
+                        from_name=email_to_name.get(norm_em),
+                        client_id=client_sl_id,
+                        client_name=client_name,
+                        sent=sent,
+                        bounced=bounced,
+                        leads_contacted=leads,
+                        custom_bounce_rate=b_rate,
+                    )
+                    aggregates.append(agg)
+
+                aggregates.sort(key=lambda a: (-a.sent, a.email))
+                mailbox_items = [
+                    MailboxReportItem(
+                        email=agg.email,
+                        mailbox_id=agg.smartlead_email_account_id,
+                        leads_contacted=agg.leads_contacted,
+                        sent=agg.sent,
+                        bounced=agg.bounced,
+                        bounce_rate=agg.bounce_rate,
+                    )
+                    for agg in aggregates
+                ]
+                client_item = (
+                    ClientReportItem(
+                        client_id=client_sl_id,
+                        client_name=client_name,
+                        mailboxes=mailbox_items,
+                    )
+                    if mailbox_items
+                    else None
+                )
+                return client_item, aggregates
+
+            # Fallback approach: Campaign-by-campaign mailbox statistics
             total_camps = len(campaigns)
 
             async def process_campaign(campaign: dict[str, Any], idx: int) -> dict[str, Any] | None:
@@ -192,28 +284,14 @@ class WeeklyReportService:
                     return None
 
                 async with sem:
-                    logger.debug(
-                        "    [%d/%d] Campaign '%s' (id=%d, status=%s): fetching data",
-                        idx,
-                        total_camps,
-                        campaign_name,
-                        campaign_id,
-                        campaign_status,
-                    )
-
-                    # Fetch direct mailbox-level statistics for the date range
                     mailbox_stats = await self._api.get_campaign_mailbox_statistics(
                         campaign_id=campaign_id,
                         start_date=start_str,
                         end_date=end_str,
                     )
-
-                    # Fetch email accounts attached to campaign
                     email_accounts = await self._mailbox_service.get_campaign_mailboxes(campaign_id)
-
                     total_sent = sum(m.get("sent_count", 0) for m in mailbox_stats)
                     total_bounced = sum(m.get("bounce_count", 0) for m in mailbox_stats)
-
                     unique_sent_count = 0
                     if total_sent > 0:
                         camp_analytics = await self._api.get_campaign_date_analytics(
@@ -233,29 +311,23 @@ class WeeklyReportService:
                         "email_accounts": email_accounts,
                     }
 
-            results = await asyncio.gather(
+            c_results = await asyncio.gather(
                 *(process_campaign(c, idx) for idx, c in enumerate(campaigns, 1)),
                 return_exceptions=True,
             )
-
             campaign_mailbox_data: list[dict[str, Any]] = []
-            for result in results:
-                if isinstance(result, Exception):
-                    logger.error("Campaign processing error: %s", result)
-                elif result is not None:
-                    campaign_mailbox_data.append(result)
+            for res in c_results:
+                if isinstance(res, Exception):
+                    logger.error("Campaign processing error: %s", res)
+                elif res is not None:
+                    campaign_mailbox_data.append(res)
 
-            # Step 4: Aggregate to mailbox level for this client
             aggregates = aggregate_mailboxes(
                 client_id=client_sl_id,
                 client_name=client_name,
                 campaign_mailbox_data=campaign_mailbox_data,
             )
-            all_aggregates.extend(aggregates)
-
-            # Sort mailboxes by sent descending, then email
             aggregates.sort(key=lambda a: (-a.sent, a.email))
-
             mailbox_items = [
                 MailboxReportItem(
                     email=agg.email,
@@ -267,21 +339,31 @@ class WeeklyReportService:
                 )
                 for agg in aggregates
             ]
-
-            if mailbox_items:
-                client_report_items.append(
-                    ClientReportItem(
-                        client_id=client_sl_id,
-                        client_name=client_name,
-                        mailboxes=mailbox_items,
-                    )
+            client_item = (
+                ClientReportItem(
+                    client_id=client_sl_id,
+                    client_name=client_name,
+                    mailboxes=mailbox_items,
                 )
-
-            logger.info(
-                "Client '%s': %d unique mailboxes aggregated",
-                client_name,
-                len(aggregates),
+                if mailbox_items
+                else None
             )
+            return client_item, aggregates
+
+        client_tasks = [
+            process_single_client(c_id, camps)
+            for c_id, camps in campaigns_by_client.items()
+        ]
+        client_outcomes = await asyncio.gather(*client_tasks, return_exceptions=True)
+
+        for outcome in client_outcomes:
+            if isinstance(outcome, Exception):
+                logger.error("Error processing client: %s", outcome)
+            elif outcome:
+                c_item, aggs = outcome
+                if c_item and c_item.mailboxes:
+                    client_report_items.append(c_item)
+                all_aggregates.extend(aggs)
 
         # Sort clients alphabetically by name
         client_report_items.sort(key=lambda c: c.client_name.lower())

@@ -244,6 +244,43 @@ class TestSmartleadApiClient:
         assert sent == 250
         assert bounced == 5
 
+    @respx.mock
+    async def test_get_mailbox_health_metrics_success(self):
+        """Official health metrics endpoint returns per-mailbox metrics."""
+        mock_response = {
+            "success": True,
+            "data": {
+                "email_health_metrics": [
+                    {
+                        "from_email": "abdulkittana@get-asecurecloud.com",
+                        "sent": 168,
+                        "bounced": 2,
+                        "unique_lead_count": 151,
+                        "bounce_rate": "1.32%",
+                    }
+                ]
+            },
+        }
+        respx.get(f"{BASE_URL}/analytics/mailbox/name-wise-health-metrics").mock(
+            return_value=httpx.Response(200, json=mock_response)
+        )
+
+        settings = make_mock_settings()
+        async with SmartleadApiClient(settings) as client:
+            metrics = await client.get_mailbox_health_metrics(
+                start_date="2026-09-28",
+                end_date="2026-10-04",
+                client_ids="573725",
+                full_data=True,
+            )
+
+        assert len(metrics) == 1
+        assert metrics[0]["from_email"] == "abdulkittana@get-asecurecloud.com"
+        assert metrics[0]["unique_lead_count"] == 151
+        assert metrics[0]["sent"] == 168
+        assert metrics[0]["bounced"] == 2
+        assert metrics[0]["bounce_rate"] == "1.32%"
+
     async def test_api_key_not_in_repr(self):
         """API key must not appear in __repr__ or __str__."""
         settings = make_mock_settings()

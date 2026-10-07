@@ -39,3 +39,12 @@ class MailboxService:
                 exc,
             )
             return []
+
+    async def get_all_mailboxes(self) -> list[dict[str, Any]]:
+        """Fetch all email accounts in the system."""
+        try:
+            return await self._api.get_all_email_accounts()
+        except SmartleadError as exc:
+            logger.error("Failed to fetch all email accounts: %s", exc)
+            return []
+

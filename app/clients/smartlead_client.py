@@ -399,6 +399,63 @@ class SmartleadApiClient:
 
         return all_stats
 
+    async def get_mailbox_health_metrics(
+        self,
+        start_date: str,
+        end_date: str,
+        client_ids: str | None = None,
+        campaign_ids: str | None = None,
+        full_data: bool = True,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Fetch mailbox health metrics from Smartlead's official Email Health Metrics endpoint:
+        GET /analytics/mailbox/name-wise-health-metrics
+
+        Official documentation: https://api.smartlead.ai/api-reference/analytics/email-wise-health
+        Provides exact metrics matching the Smartlead 'Email Health Metrics' dashboard:
+          - from_email: mailbox email address
+          - sent: total emails sent
+          - unique_lead_count: exact leads contacted
+          - bounced: total bounces
+          - bounce_rate: formatted percentage string (e.g. '1.32%')
+          - opened, replied, positive_replied, etc.
+        """
+        params: dict[str, Any] = {
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+        if client_ids:
+            params["client_ids"] = str(client_ids)
+        if campaign_ids:
+            params["campaign_ids"] = str(campaign_ids)
+        if full_data:
+            params["full_data"] = "true"
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+
+        logger.debug(
+            "Fetching mailbox health metrics [%s -> %s, client_ids=%s, campaign_ids=%s]",
+            start_date,
+            end_date,
+            client_ids,
+            campaign_ids,
+        )
+        try:
+            result = await self._get(
+                "/analytics/mailbox/name-wise-health-metrics",
+                params=params,
+            )
+            if isinstance(result, dict):
+                return result.get("data", {}).get("email_health_metrics", [])
+            return []
+        except (SmartleadNotFoundError, SmartleadError) as exc:
+            logger.warning("Error fetching mailbox health metrics: %s", exc)
+            return []
+
     async def get_campaign_analytics_by_date(
         self,
         campaign_id: int,
