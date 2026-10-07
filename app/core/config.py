@@ -44,8 +44,8 @@ class Settings(BaseSettings):
     smartlead_include_archived: bool = False
     smartlead_include_drafted: bool = False
 
-    # ---- Database ----
-    database_url: str = "postgresql+asyncpg://user:password@localhost:5432/smartlead_reports"
+    # ---- Database (Optional) ----
+    database_url: Optional[str] = None
 
     # ---- Scheduler ----
     report_day: str = "MONDAY"
@@ -113,6 +113,8 @@ class Settings(BaseSettings):
 
     def _mask_db_url(self) -> str:
         """Mask credentials in the database URL for safe logging."""
+        if not self.database_url:
+            return "None (Standalone Mode)"
         try:
             from urllib.parse import urlparse, urlunparse
             parsed = urlparse(self.database_url)
@@ -122,6 +124,7 @@ class Settings(BaseSettings):
             return urlunparse(masked)
         except Exception:
             return "****"
+
 
 
 @lru_cache(maxsize=1)

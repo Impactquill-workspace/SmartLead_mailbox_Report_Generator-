@@ -36,16 +36,20 @@ async def lifespan(app: FastAPI):
     logger.info("=== Smartlead Weekly Mailbox Analytics starting ===")
     logger.info("Settings: %s", settings.safe_repr())
 
-    # Create DB tables
-    try:
-        await create_all_tables()
-        logger.info("Database tables verified/created")
-    except Exception as exc:
-        logger.warning(
-            "Database initialization failed (PostgreSQL may not be running): %s. "
-            "The application will start but database persistence is disabled.",
-            exc,
-        )
+    # Create DB tables if configured
+    if settings.database_url:
+        try:
+            await create_all_tables()
+            logger.info("Database tables verified/created")
+        except Exception as exc:
+            logger.warning(
+                "Database initialization failed: %s. "
+                "The application will start but database persistence is disabled.",
+                exc,
+            )
+    else:
+        logger.info("No DATABASE_URL configured. Running in Standalone Excel & Web UI mode.")
+
 
     # Start scheduler
     scheduler = create_scheduler(settings)
