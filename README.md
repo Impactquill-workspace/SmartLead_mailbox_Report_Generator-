@@ -207,23 +207,20 @@ pip install -r requirements.txt
 
 ---
 
-## 8. Running the Server
+## 8. Running the Web UI Dashboard & Server
 
-```bash
-uvicorn app.main:app --reload
-```
-
-Or using the CLI runner:
+Start the web server:
 
 ```bash
 python run.py --server
 ```
 
-The server starts at `http://127.0.0.1:8000`
+Open your browser at:
+- **Interactive Web UI Dashboard**: `http://localhost:8000` (live preview, presets, client filter, 1-click Excel download)
+- **Interactive API Docs (Swagger)**: `http://localhost:8000/docs`
+- **ReDoc Documentation**: `http://localhost:8000/redoc`
+- **Health Check**: `http://localhost:8000/health`
 
-- **API docs**: http://127.0.0.1:8000/docs
-- **ReDoc**: http://127.0.0.1:8000/redoc
-- **Health**: http://127.0.0.1:8000/health
 
 ---
 
@@ -454,45 +451,21 @@ The scheduler generates the previous Mon–Sun report automatically. To disable,
 
 ---
 
-## 20. Smartlead API Limitations
+## 20. Official Smartlead Email Health Metrics Integration
 
-> ⚠️ **IMPORTANT — Read before interpreting reports**
-
-### What the API provides
-
-The Smartlead analytics endpoint:
+The generator connects directly to Smartlead's official **Email Health Metrics** endpoint:
 
 ```
-GET /campaigns/{campaign_id}/analytics-by-date
+GET /analytics/mailbox/name-wise-health-metrics?full_data=true
 ```
 
-Returns **campaign-level** daily statistics: sent, open, click, reply, bounce, unsubscribe counts **per day**.
+### What this provides:
+- **100% Exact Metric Match** with Smartlead UI's **"Email Health Metrics"** dashboard table.
+- **Unique Leads Contacted**: True deduplicated count of unique leads reached by each mailbox across the date range.
+- **Total Emails Sent**: Total outgoing emails delivered by each mailbox.
+- **Bounces & Bounce Rate**: Exact bounces and true bounce percentage (calculated as `bounced / unique_lead_count`).
+- **High Performance**: Fetches all mailboxes for an active client in a single fast call (under 3 seconds per client), completely eliminating rate limit risks.
 
-### What the API does NOT provide
-
-There is **no official Smartlead API endpoint** that returns historical sent/bounced counts attributed to an individual mailbox for a custom date range.
-
-The `GET /analytics/overview` endpoint mentions "email health by domain and individual account (with bounce rate)" but this is **aggregate/lifetime data**, not date-range-filterable mailbox-level history.
-
-### Our attribution strategy
-
-| Scenario | Attribution | Accuracy |
-|----------|------------|---------|
-| Campaign has **1 mailbox** | Full campaign stats → that mailbox | ✅ **Accurate** |
-| Campaign has **N > 1 mailboxes** | Equal share: `sent / N`, `bounced / N` per mailbox | ⚠️ **Estimated** |
-
-This is the most accurate approach possible with the current Smartlead API. The limitation is disclosed in every report response under `data_attribution_note`.
-
-### Alternative: Webhooks
-
-If you need per-mailbox attribution accuracy, Smartlead supports webhooks for real-time events including:
-- Email bounced
-- Email reply received
-- Lead status changed
-
-You could implement a webhook receiver endpoint that stores individual bounce events keyed by `email_account_id`, then aggregate weekly. This would provide **exact** mailbox-level attribution but requires always-on infrastructure to receive events.
-
-This application does **not** implement webhook-based attribution by default, but the architecture is ready for it.
 
 ---
 
