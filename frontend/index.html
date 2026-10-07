@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smartlead Mailbox Analytics & Weekly Report Generator</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Custom Style -->
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 antialiased flex flex-col">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-slate-900 border-b border-slate-800 text-white shadow-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-envelope-open-text text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            Smartlead Mailbox Analytics
+            <span class="text-xs bg-emerald-500/20 text-emerald-400 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">
+              Live API
+            </span>
+          </h1>
+          <p class="text-xs text-slate-400 hidden sm:block">Production Weekly Mailbox Health & Delivery Report Generator</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <a href="/docs" target="_blank" class="text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 transition">
+          <i class="fa-solid fa-code mr-1"></i> API Docs
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+    <!-- Filters & Input Card -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      
+      <!-- Card Title & Presets -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between pb-5 mb-5 border-b border-slate-100 gap-4">
+        <div>
+          <h2 class="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-sliders text-indigo-600"></i>
+            Report Configuration
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">Select a reporting window, client filter, and campaign criteria.</p>
+        </div>
+
+        <!-- Quick Presets -->
+        <div class="flex items-center flex-wrap gap-2">
+          <span class="text-xs font-medium text-slate-400 uppercase tracking-wider mr-1">Presets:</span>
+          <button id="preset-last-week" type="button" class="text-xs px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-medium border border-indigo-200/80 transition flex items-center gap-1.5 shadow-xs">
+            <i class="fa-regular fa-calendar-check text-indigo-600"></i>
+            Last Calendar Week (Mon–Sun)
+          </button>
+          <button id="preset-7-days" type="button" class="text-xs px-3 py-1.5 rounded-lg bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium border border-slate-200 transition">
+            Last 7 Days
+          </button>
+          <button id="preset-14-days" type="button" class="text-xs px-3 py-1.5 rounded-lg bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium border border-slate-200 transition">
+            Last 14 Days
+          </button>
+        </div>
+      </div>
+
+      <!-- Input Form -->
+      <form id="report-form" class="space-y-5">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          
+          <!-- Date Range Pickers -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+              Date Range (Start → End)
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="relative">
+                <input type="date" id="start-date" required class="w-full text-sm rounded-xl border border-slate-300 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-xs" />
+              </div>
+              <div class="relative">
+                <input type="date" id="end-date" required class="w-full text-sm rounded-xl border border-slate-300 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-xs" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Client Filter Dropdown -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+              Client Filter
+            </label>
+            <div class="relative">
+              <select id="client-select" class="w-full text-sm rounded-xl border border-slate-300 px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-xs appearance-none bg-white pr-9">
+                <option value="">All Clients (Across entire account)</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                <i class="fa-solid fa-chevron-down text-xs"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Campaign Status Filter -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+              Campaign Status
+            </label>
+            <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+              <label class="flex items-center justify-center text-xs font-medium py-1.5 px-3 rounded-lg cursor-pointer transition select-none has-[:checked]:bg-white has-[:checked]:text-indigo-700 has-[:checked]:shadow-xs text-slate-600">
+                <input type="radio" name="status_filter" value="ACTIVE" checked class="hidden" />
+                <i class="fa-solid fa-circle-play mr-1.5 text-emerald-500 text-[10px]"></i> Active Only
+              </label>
+              <label class="flex items-center justify-center text-xs font-medium py-1.5 px-3 rounded-lg cursor-pointer transition select-none has-[:checked]:bg-white has-[:checked]:text-indigo-700 has-[:checked]:shadow-xs text-slate-600">
+                <input type="radio" name="status_filter" value="" class="hidden" />
+                <i class="fa-solid fa-layer-group mr-1.5 text-slate-400 text-[10px]"></i> All Campaigns
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Button Row -->
+        <div class="flex items-center justify-between pt-2">
+          <div class="text-xs text-slate-500 flex items-center gap-1.5">
+            <i class="fa-solid fa-shield-halved text-emerald-600"></i>
+            Exact metric match with Smartlead <strong>Email Health Metrics</strong>
+          </div>
+          <button id="generate-btn" type="submit" class="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-semibold rounded-xl shadow-md shadow-indigo-500/20 transition transform active:scale-98">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Generate Report</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Loading State Banner -->
+    <div id="loading-state" class="hidden bg-white rounded-2xl border border-indigo-100 p-8 text-center shadow-sm">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 mb-4 animate-bounce">
+        <i class="fa-solid fa-cloud-arrow-down text-2xl"></i>
+      </div>
+      <h3 class="text-base font-semibold text-slate-800">Fetching Data from Smartlead API...</h3>
+      <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+        Querying official email health metrics, aggregating deduplicated mailboxes, and compiling delivery statistics.
+      </p>
+      <div class="w-64 h-1.5 bg-slate-100 rounded-full mx-auto mt-5 overflow-hidden">
+        <div class="w-full h-full bg-indigo-600 rounded-full animate-pulse"></div>
+      </div>
+    </div>
+
+    <!-- Error State Banner -->
+    <div id="error-state" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-5 text-rose-800">
+      <div class="flex items-start gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-rose-500 mt-0.5 text-lg"></i>
+        <div class="flex-1 text-sm">
+          <h4 class="font-bold">Error Generating Report</h4>
+          <p id="error-message" class="text-xs text-rose-700 mt-1"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Section (Initially Hidden) -->
+    <div id="results-section" class="hidden space-y-6">
+
+      <!-- KPI Summary Cards Grid -->
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        
+        <!-- Clients Card -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Clients</div>
+          <div id="kpi-clients" class="text-2xl font-bold text-slate-800 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Analyzed</div>
+        </div>
+
+        <!-- Mailboxes Card -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Mailboxes</div>
+          <div id="kpi-mailboxes" class="text-2xl font-bold text-indigo-600 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Active sending</div>
+        </div>
+
+        <!-- Leads Contacted Card -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Leads Contacted</div>
+          <div id="kpi-leads" class="text-2xl font-bold text-emerald-600 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Unique leads</div>
+        </div>
+
+        <!-- Total Sent Card -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Sent</div>
+          <div id="kpi-sent" class="text-2xl font-bold text-slate-800 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Emails delivered</div>
+        </div>
+
+        <!-- Total Bounced Card -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Bounced</div>
+          <div id="kpi-bounced" class="text-2xl font-bold text-amber-600 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Undelivered</div>
+        </div>
+
+        <!-- Bounce Rate Card -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Bounce Rate</div>
+          <div id="kpi-rate" class="text-2xl font-bold text-slate-800 mt-1">0.00%</div>
+          <div id="kpi-rate-badge" class="mt-1">
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded badge-low">Good</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table Section -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        
+        <!-- Tab Bar & Controls -->
+        <div class="p-4 sm:px-6 bg-slate-50/70 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          
+          <!-- Tabs -->
+          <div class="flex items-center space-x-2">
+            <button id="tab-mailbox" type="button" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow-xs transition">
+              <i class="fa-solid fa-table-list mr-1.5"></i> Mailbox Details
+            </button>
+            <button id="tab-client" type="button" class="px-3.5 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition">
+              <i class="fa-solid fa-users mr-1.5"></i> Client Summary
+            </button>
+          </div>
+
+          <!-- Search & Export Actions -->
+          <div class="flex items-center space-x-3">
+            <div class="relative w-56 sm:w-64">
+              <input type="text" id="table-search" placeholder="Search email or client..." class="w-full text-xs rounded-xl border border-slate-300 pl-8 pr-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs" />
+              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400">
+                <i class="fa-solid fa-magnifying-glass text-xs"></i>
+              </div>
+            </div>
+
+            <!-- Download Button -->
+            <button id="download-excel-btn" type="button" class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-xl shadow-xs transition">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>Download Excel</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- View 1: Mailbox Details Table -->
+        <div id="view-mailbox" class="table-container">
+          <table class="w-full text-left text-xs text-slate-700">
+            <thead>
+              <tr>
+                <th class="py-3 px-4 font-semibold">#</th>
+                <th class="py-3 px-4 font-semibold">Client Name</th>
+                <th class="py-3 px-4 font-semibold">Mailbox Email</th>
+                <th class="py-3 px-4 font-semibold text-right">Leads Contacted</th>
+                <th class="py-3 px-4 font-semibold text-right">Total Sent</th>
+                <th class="py-3 px-4 font-semibold text-right">Bounced</th>
+                <th class="py-3 px-4 font-semibold text-right">Bounce Rate</th>
+                <th class="py-3 px-4 font-semibold text-right">Mailbox ID</th>
+              </tr>
+            </thead>
+            <tbody id="mailbox-table-body" class="divide-y divide-slate-100 font-mono text-[11px]">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- View 2: Client Summary Table -->
+        <div id="view-client" class="table-container hidden">
+          <table class="w-full text-left text-xs text-slate-700">
+            <thead>
+              <tr>
+                <th class="py-3 px-4 font-semibold">#</th>
+                <th class="py-3 px-4 font-semibold">Client Name</th>
+                <th class="py-3 px-4 font-semibold text-center">Client ID</th>
+                <th class="py-3 px-4 font-semibold text-center">Mailboxes</th>
+                <th class="py-3 px-4 font-semibold text-right">Leads Contacted</th>
+                <th class="py-3 px-4 font-semibold text-right">Total Sent</th>
+                <th class="py-3 px-4 font-semibold text-right">Total Bounced</th>
+                <th class="py-3 px-4 font-semibold text-right">Overall Bounce Rate</th>
+              </tr>
+            </thead>
+            <tbody id="client-table-body" class="divide-y divide-slate-100 font-mono text-[11px]">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Table Footer / Note -->
+        <div class="px-6 py-3 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span id="attribution-note">Source: Smartlead Official Email Health Metrics API</span>
+          <span id="row-count" class="font-medium">Showing 0 records</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto py-4 bg-slate-900 border-t border-slate-800 text-center text-xs text-slate-500">
+    Smartlead Weekly Mailbox Delivery Report Generator &copy; 2026
+  </footer>
+
+  <!-- App Script -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

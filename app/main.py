@@ -97,14 +97,27 @@ app.include_router(mailboxes.router)
 app.include_router(analytics.router)
 
 
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+frontend_dir = Path("frontend")
+if frontend_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(frontend_dir)), name="static")
+
+
 @app.get("/", include_in_schema=False)
-async def root() -> dict[str, Any]:
+async def serve_ui():
+    index_file = frontend_dir / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
     return {
         "name": "Smartlead Weekly Mailbox Analytics",
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health",
     }
+
 
 
 @app.get("/health", tags=["Health"])

@@ -148,18 +148,47 @@ async def export_weekly_report(
     )
 
 
+@router.get("/presets")
+async def get_report_presets() -> dict[str, Any]:
+    """Return common date presets like previous calendar week."""
+    from app.utils.date_utils import format_date, get_previous_calendar_week
+    last_week = get_previous_calendar_week()
+    return {
+        "last_week": {
+            "start_date": format_date(last_week.start),
+            "end_date": format_date(last_week.end),
+        }
+    }
+
+
+@router.get("/download/{filename}")
+async def download_report_file(filename: str) -> FileResponse:
+    """Download an exported report file safely by name."""
+    safe_name = Path(filename).name
+    file_path = Path("exports") / safe_name
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Report file not found")
+    return FileResponse(
+        path=str(file_path),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=safe_name,
+    )
+
+
 @router.post("/generate", response_model=WeeklyReportResponse)
 async def generate_report(
     request: GenerateReportRequest,
     db: AsyncSession = Depends(get_db),
 ) -> WeeklyReportResponse:
     """
-    Manually trigger report generation for a custom date range.
+    Manually trigger report generation for a custom date range and filters.
 
     Body:
         {
             "start_date": "YYYY-MM-DD",
-            "end_date": "YYYY-MM-DD"
+            "end_date": "YYYY-MM-DD",
+            "client_id": null | int,
+            "status_filter": "ACTIVE" | null
         }
     """
     try:
@@ -177,7 +206,12 @@ async def generate_report(
 
     try:
         async with api_client:
-            return await service.generate_report(start, end)
+            return await service.generate_report(
+                start,
+                end,
+                status_filter=request.status_filter,
+                client_id_filter=request.client_id,
+            )
     except SmartleadAuthError:
         raise HTTPException(
             status_code=401,
@@ -185,3 +219,4 @@ async def generate_report(
         )
     except SmartleadError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
+

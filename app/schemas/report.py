@@ -62,6 +62,8 @@ class GenerateReportRequest(BaseModel):
     """Request body for manual report generation."""
     start_date: str  # YYYY-MM-DD
     end_date: str    # YYYY-MM-DD
+    client_id: Optional[int] = None
+    status_filter: Optional[str] = "ACTIVE"
 
 
 class ReportSummary(BaseModel):

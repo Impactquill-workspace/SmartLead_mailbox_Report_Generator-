@@ -100,6 +100,7 @@ class WeeklyReportService:
         start_date: date,
         end_date: date,
         status_filter: Optional[str] = None,
+        client_id_filter: Optional[int] = None,
     ) -> WeeklyReportResponse:
         """
         Generate the full mailbox report for the given date range.
@@ -108,15 +109,17 @@ class WeeklyReportService:
             start_date: Inclusive report start date.
             end_date: Inclusive report end date.
             status_filter: Optional campaign status filter (e.g. 'ACTIVE').
+            client_id_filter: Optional client ID filter to run for a specific client.
 
         Returns:
             WeeklyReportResponse with all client/mailbox data.
         """
         logger.info(
-            "=== Report generation started: %s -> %s (status_filter: %s) ===",
+            "=== Report generation started: %s -> %s (status_filter: %s, client_id_filter: %s) ===",
             start_date,
             end_date,
             status_filter or "ALL",
+            client_id_filter or "ALL",
         )
 
         if self._dry_run:
@@ -140,6 +143,10 @@ class WeeklyReportService:
         skipped_drafted = 0
         skipped_status = 0
         for c in all_campaigns:
+            c_client_id = c.get("client_id") or 0
+            if client_id_filter is not None and c_client_id != client_id_filter:
+                continue
+
             c_status = str(c.get("status", "")).upper()
             if status_filter and c_status != status_filter.upper():
                 skipped_status += 1
@@ -150,8 +157,11 @@ class WeeklyReportService:
             if c_status == "ARCHIVED" and not include_archived:
                 skipped_archived += 1
                 continue
-            c_client_id = c.get("client_id") or 0
             campaigns_by_client.setdefault(c_client_id, []).append(c)
+
+        # Ensure single client is queried even if they have 0 campaigns returned by listing
+        if client_id_filter is not None and client_id_filter not in campaigns_by_client:
+            campaigns_by_client[client_id_filter] = []
 
         if skipped_status > 0:
             logger.info("Campaign status filter '%s': skipped %d non-matching campaigns.", status_filter, skipped_status)
